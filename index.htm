@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>超級大電視 - Charades</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* iOS Safari height fix */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .safe-area-inset {
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+    </style>
+</head>
+<body class="bg-indigo-50 text-gray-800">
+    <div id="root" class="h-full w-full"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- Icons (Inline SVGs) ---
+        const IconTimer = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l3 2"></path><path d="M9 2h6"></path></svg>
+        );
+        const IconShuffle = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="23 17 23 23 17 23"></polyline><polyline points="1 6 1 1 7 1"></polyline><path d="M3.51 6a9 9 0 0 1 14.85-3.36M20.49 17.9A9 9 0 0 1 5.64 2.05"></path></svg>
+        );
+        const IconCheck = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12"></polyline></svg>
+        );
+        const IconX = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        );
+        const IconClock = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        );
+        const IconTrophy = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-2m-4-3V5a2 2 0 0 0-2-2h0a2 2 0 0 0-2 2v1m4 3a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1"></path></svg>
+        );
+        const IconRotateCcw = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+        );
+        const IconHome = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        );
+        const IconLightbulb = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        );
+        const IconInfinity = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4zM9 9h6"></path></svg>
+        );
+        const IconEye = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        );
+        const IconEyeOff = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+        );
+
+        // --- Data ---
+        const WORD_LIST = [
+            "公園", "超級市場", "學校", "醫院", "沙灘", "圖書館", "街市", "餐廳", "動物園", "郵局", "海洋公園", "地鐵站", "香港",
+            "跑", "跳", "坐", "切", "抱", "孭（書面語：背著）", "摘", "彈", "拉", "倒", "扭", "執（書面語：收拾/拾取）", "寫", "擦", "捕魚",
+            "月餅", "湯圓", "年糕", "龍舟競賽", "蘿蔔糕", "粽/糉", "楊桃",
+            "中國四大名著", "唐三藏", "唐朝", "宋朝", "宋王臺", "張保仔", "拼圖", "足球", "放風箏", "泥膠",
+            "錘", "螺絲批", "指甲鉗", "鋸", "電鑽", "鏟",
+            "指南針", "鉛筆", "賞月", "擦膠", "間尺", "剪刀", "膠水", "筆盒", "便條紙", "釘書機", "熒光筆",
+            "電視機", "電腦", "遠足", "電飯煲", "雪櫃", "洗衣機", "風扇", "微波爐", "燙斗", "吸塵機", "手提電話",
+            "雪糕", "蛋糕", "布丁", "曲奇", "糖果", "朱古力", "啫喱", "雞蛋仔", "蛋撻",
+            "老虎", "大象", "長頸鹿", "企鵝", "熊貓", "海豚", "兔子", "烏龜", "馬", "蛇", "青蛙", "狐狸",
+            "大掃除", "文件夾", "拜年", "原子筆", "睇煙花", "白膠漿", "漿糊筆", "膠紙", "萬字夾", "木顔色筆",
+            "蘋果", "橙", "芒果", "榴槤", "檸檬", "香蕉", "提子", "藍莓",
+            "老師", "學生", "廚師", "店員", "郵差", "警察", "醫生", "護士", "收銀員",
+            "太陽能", "熱能"
+        ];
+
+        // --- Logic ---
+        const shuffleArray = (array) => {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        };
+
+        const App = () => {
+            const [gameState, setGameState] = useState('menu');
+            const [currentDeck, setCurrentDeck] = useState([]);
+            const [currentIndex, setCurrentIndex] = useState(0);
+            const [score, setScore] = useState(0);
+            const [timeLeft, setTimeLeft] = useState(0);
+            const [timeLimit, setTimeLimit] = useState(60);
+            const [isPaused, setIsPaused] = useState(false);
+            const [modeName, setModeName] = useState('');
+            const [showHint, setShowHint] = useState(false);
+            const [isWordVisible, setIsWordVisible] = useState(true); // 新增：控制詞彙顯示狀態
+
+            useEffect(() => {
+                setCurrentDeck(shuffleArray(WORD_LIST));
+            }, []);
+
+            useEffect(() => {
+                let interval = null;
+                // Only run timer if timeLimit is greater than 0
+                if (gameState === 'playing' && timeLimit > 0 && timeLeft > 0 && !isPaused) {
+                    interval = setInterval(() => {
+                        setTimeLeft((prev) => prev - 1);
+                    }, 1000);
+                } else if (timeLimit > 0 && timeLeft === 0 && gameState === 'playing') {
+                    clearInterval(interval);
+                }
+                return () => clearInterval(interval);
+            }, [gameState, timeLeft, isPaused, timeLimit]);
+
+            const startGame = (limit, name) => {
+                const shuffled = shuffleArray(WORD_LIST);
+                setCurrentDeck(shuffled);
+                setCurrentIndex(0);
+                setScore(0);
+                setTimeLimit(limit);
+                setTimeLeft(limit);
+                setModeName(name);
+                setGameState('playing');
+                setIsPaused(false);
+                setShowHint(false);
+                setIsWordVisible(true); // 遊戲開始時預設顯示
+            };
+
+            const manualShuffle = () => {
+                setCurrentDeck(shuffleArray(WORD_LIST));
+                // Simple feedback without alert
+                const btn = document.getElementById('shuffleBtn');
+                if(btn) {
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '已洗牌!';
+                    setTimeout(() => btn.innerHTML = originalText, 1000);
+                }
+            };
+
+            const handleNext = (correct) => {
+                if (correct) {
+                    setScore((prev) => prev + 1);
+                }
+                
+                if (currentIndex < currentDeck.length - 1) {
+                    setCurrentIndex((prev) => prev + 1);
+                    setTimeLeft(timeLimit); // reset timer (or stays -1 if untimed)
+                    setIsWordVisible(true); // 切換下一題時自動顯示詞彙
+                } else {
+                    endGame();
+                }
+            };
+
+            const endGame = () => {
+                setGameState('result');
+            };
+
+            const returnToMenu = () => {
+                setGameState('menu');
+            };
+
+            const toggleWordVisibility = () => {
+                setIsWordVisible(prev => !prev);
+            };
+
+            const getFontSizeClass = (text) => {
+                if (!text) return 'text-6xl';
+                if (text.length <= 2) return 'text-8xl md:text-9xl';
+                if (text.length <= 4) return 'text-6xl md:text-8xl';
+                if (text.length <= 6) return 'text-5xl md:text-7xl';
+                return 'text-4xl md:text-6xl';
+            };
+
+            const touchButtonStyle = "active:scale-95 transition-transform touch-manipulation select-none cursor-pointer";
+
+            // --- Menu View ---
+            if (gameState === 'menu') {
+                return (
+                    <div className="fixed inset-0 bg-blue-50 flex flex-col items-center justify-center p-4 font-sans safe-area-inset overflow-y-auto">
+                        <div className="bg-white rounded-3xl shadow-xl p-6 md:p-8 max-w-md w-full text-center border-4 border-blue-200">
+                            <h1 className="text-3xl md:text-4xl font-black text-blue-600 mb-2 tracking-wider">超級大電視</h1>
+                            <p className="text-gray-500 mb-6 text-base md:text-lg">考考你描述東西的能力</p>
+                            
+                            <div className="space-y-3">
+                                <button 
+                                    onClick={() => startGame(60, '輕鬆模式')}
+                                    className={`w-full bg-green-400 hover:bg-green-500 text-white text-lg md:text-xl font-bold py-3 md:py-4 px-6 rounded-2xl shadow-lg flex items-center justify-center gap-2 ${touchButtonStyle}`}
+                                >
+                                    <div className="bg-white/20 p-2 rounded-full"><IconTimer size={20} /></div>
+                                    容易 (60秒)
+                                </button>
+
+                                <button 
+                                    onClick={() => startGame(30, '挑戰模式')}
+                                    className={`w-full bg-yellow-400 hover:bg-yellow-500 text-white text-lg md:text-xl font-bold py-3 md:py-4 px-6 rounded-2xl shadow-lg flex items-center justify-center gap-2 ${touchButtonStyle}`}
+                                >
+                                    <div className="bg-white/20 p-2 rounded-full"><IconTimer size={20} /></div>
+                                    中等 (30秒)
+                                </button>
+
+                                <button 
+                                    onClick={() => startGame(15, '極速模式')}
+                                    className={`w-full bg-red-400 hover:bg-red-500 text-white text-lg md:text-xl font-bold py-3 md:py-4 px-6 rounded-2xl shadow-lg flex items-center justify-center gap-2 ${touchButtonStyle}`}
+                                >
+                                    <div className="bg-white/20 p-2 rounded-full"><IconTimer size={20} /></div>
+                                    困難 (15秒)
+                                </button>
+
+                                {/* No Timer Option */}
+                                <button 
+                                    onClick={() => startGame(-1, '不計時模式')}
+                                    className={`w-full bg-purple-400 hover:bg-purple-500 text-white text-lg md:text-xl font-bold py-3 md:py-4 px-6 rounded-2xl shadow-lg flex items-center justify-center gap-2 ${touchButtonStyle}`}
+                                >
+                                    <div className="bg-white/20 p-2 rounded-full"><IconInfinity size={20} /></div>
+                                    不計時
+                                </button>
+                            </div>
+
+                            <div className="mt-6 pt-4 border-t border-gray-100">
+                                <button 
+                                    id="shuffleBtn"
+                                    onClick={manualShuffle}
+                                    className={`text-gray-500 hover:text-blue-500 font-medium flex items-center justify-center gap-2 mx-auto transition-colors ${touchButtonStyle}`}
+                                >
+                                    <IconShuffle size={20} />
+                                    <span>手動洗牌</span>
+                                </button>
+                                <p className="text-xs text-gray-400 mt-2">共 {WORD_LIST.length} 個詞彙</p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- Playing View ---
+            if (gameState === 'playing') {
+                const isTimeUp = timeLimit > 0 && timeLeft === 0;
+                const progress = timeLimit > 0 ? (timeLeft / timeLimit) * 100 : 100;
+                const currentWord = currentDeck[currentIndex];
+                
+                let timerColor = 'bg-green-400';
+                if (progress < 60) timerColor = 'bg-yellow-400';
+                if (progress < 30) timerColor = 'bg-red-400';
+
+                return (
+                    <div className="fixed inset-0 bg-indigo-50 flex flex-col p-2 md:p-4 safe-area-inset overflow-hidden">
+                        
+                        {/* Hint Modal Overlay */}
+                        {showHint && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowHint(false)}>
+                                <div className="bg-white rounded-2xl shadow-2xl p-5 w-full max-w-sm border-4 border-yellow-200 relative" onClick={e => e.stopPropagation()}>
+                                    <div className="flex justify-between items-center mb-4 border-b pb-2">
+                                        <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                            <div className="bg-yellow-100 p-1.5 rounded-full"><IconLightbulb className="text-yellow-600" size={20} /></div>
+                                            怎樣描述
+                                        </h3>
+                                        <button onClick={() => setShowHint(false)} className="p-1 rounded-full hover:bg-gray-100">
+                                            <IconX size={24} className="text-gray-500" />
+                                        </button>
+                                    </div>
+                                    <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto text-left">
+                                        <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 shadow-sm">
+                                            <div className="font-black text-blue-800 mb-1 text-lg">種類</div>
+                                            <div className="text-blue-700 font-medium text-sm md:text-base">屬於...？</div>
+                                        </div>
+                                        <div className="bg-green-50 p-3 rounded-xl border border-green-100 shadow-sm">
+                                            <div className="font-black text-green-800 mb-1 text-lg">用途</div>
+                                            <div className="text-green-700 font-medium text-sm md:text-base leading-relaxed">
+                                                何時用？在哪裏用？誰用？<br/>如何用？為何用？用來做甚麼？
+                                            </div>
+                                        </div>
+                                        <div className="bg-purple-50 p-3 rounded-xl border border-purple-100 shadow-sm">
+                                            <div className="font-black text-purple-800 mb-1 text-lg">特徵</div>
+                                            <div className="text-purple-700 font-medium text-sm md:text-base leading-relaxed">
+                                                顔色？形狀？大小？<br/>氣味/味道？摸起來感覺如何？
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 text-center">
+                                        <button onClick={() => setShowHint(false)} className="bg-blue-500 text-white px-6 py-2 rounded-xl font-bold shadow-lg active:scale-95 transition-transform">
+                                            明白了！
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Top Bar */}
+                        <div className="w-full max-w-4xl mx-auto flex justify-between items-center mb-2 shrink-0 h-12 md:h-16">
+                            <div className="flex items-center gap-2">
+                                <div className="bg-white px-3 md:px-4 py-1 md:py-2 rounded-full shadow font-bold text-gray-600 flex items-center gap-2 text-sm md:text-base">
+                                    <IconTrophy className="text-yellow-500" size={16} />
+                                    <span>{score}</span>
+                                </div>
+                                <div className="hidden md:block bg-white px-3 md:px-4 py-1 md:py-2 rounded-full shadow font-bold text-gray-600 text-sm md:text-base">
+                                    {modeName}
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={() => setShowHint(true)}
+                                    className={`bg-yellow-100 hover:bg-yellow-200 p-2 rounded-full text-yellow-600 border-2 border-yellow-200 shadow-sm ${touchButtonStyle}`}
+                                    title="提示"
+                                >
+                                    <IconLightbulb size={20} />
+                                </button>
+                                <button 
+                                    onClick={endGame}
+                                    className={`bg-gray-200 hover:bg-gray-300 p-2 rounded-full text-gray-600 ${touchButtonStyle}`}
+                                >
+                                    <IconX size={20} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Game Area */}
+                        <div className="flex-1 w-full max-w-4xl mx-auto flex flex-col justify-center min-h-0 mb-4">
+                            <div className="bg-white w-full h-full rounded-2xl md:rounded-3xl shadow-lg flex flex-col items-center justify-center relative overflow-hidden border-4 md:border-8 border-white">
+                                
+                                {/* Timer Bar (Only show if timeLimit > 0) */}
+                                {timeLimit > 0 && (
+                                    <div className="absolute top-0 left-0 w-full h-2 md:h-3 bg-gray-100">
+                                        <div 
+                                            className={`h-full transition-all duration-1000 ease-linear ${timerColor}`} 
+                                            style={{ width: `${progress}%` }}
+                                        ></div>
+                                    </div>
+                                )}
+
+                                {isTimeUp ? (
+                                    <div className="text-center animate-bounce flex flex-col items-center justify-center h-full">
+                                        <IconClock size={60} className="text-red-400 mb-2 md:mb-4 inline-block" />
+                                        <h2 className="text-4xl md:text-7xl font-black text-red-500">時間到!</h2>
+                                        <p className="text-gray-400 mt-2 text-base md:text-xl">請跳過或按下一題</p>
+                                    </div>
+                                ) : (
+                                    <div className="text-center w-full h-full flex flex-col items-center justify-center relative">
+                                        
+                                        {/* 顯示/隱藏切換按鈕 */}
+                                        <button 
+                                            onClick={toggleWordVisibility}
+                                            className={`absolute top-2 left-2 md:top-4 md:left-4 p-2 md:p-3 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors z-10 shadow-sm ${touchButtonStyle}`}
+                                            title={isWordVisible ? "隱藏詞彙" : "顯示詞彙"}
+                                        >
+                                            {isWordVisible ? <IconEyeOff size={24} className="md:w-7 md:h-7" /> : <IconEye size={24} className="md:w-7 md:h-7" />}
+                                        </button>
+
+                                        <span className="text-gray-300 text-sm md:text-lg absolute top-4 right-4 font-mono">
+                                            #{currentIndex + 1} / {currentDeck.length}
+                                        </span>
+                                        
+                                        {/* 條件渲染：顯示詞彙或隱藏提示 */}
+                                        {isWordVisible ? (
+                                            <h2 className={`${getFontSizeClass(currentWord)} font-black text-gray-800 tracking-tight leading-snug break-words px-2 animate-fade-in`}>
+                                                {currentWord}
+                                            </h2>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center text-gray-400 animate-fade-in">
+                                                <IconEyeOff size={64} className="mb-4 opacity-50" />
+                                                <span className="text-xl md:text-3xl font-bold">詞彙已隱藏</span>
+                                                <span className="text-sm md:text-base mt-2 opacity-80">點擊左上角圖示重新顯示</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Controls */}
+                        <div className="w-full max-w-4xl mx-auto grid grid-cols-2 gap-3 md:gap-6 h-24 md:h-40 shrink-0 mb-2 md:mb-4">
+                            <button 
+                                onClick={() => handleNext(false)}
+                                className={`bg-red-100 active:bg-red-200 border-b-4 md:border-b-8 border-red-200 text-red-500 rounded-2xl md:rounded-3xl flex flex-col items-center justify-center shadow-lg ${touchButtonStyle}`}
+                            >
+                                <IconX size={32} className="md:w-12 md:h-12" />
+                                <span className="font-bold text-lg md:text-xl mt-1">跳過</span>
+                            </button>
+                            
+                            <button 
+                                onClick={() => handleNext(true)}
+                                className={`bg-green-100 active:bg-green-200 border-b-4 md:border-b-8 border-green-200 text-green-500 rounded-2xl md:rounded-3xl flex flex-col items-center justify-center shadow-lg ${touchButtonStyle}`}
+                            >
+                                <IconCheck size={32} className="md:w-12 md:h-12" />
+                                <span className="font-bold text-lg md:text-xl mt-1">答對!</span>
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- Result View ---
+            if (gameState === 'result') {
+                return (
+                    <div className="fixed inset-0 bg-yellow-50 flex flex-col items-center justify-center p-6 text-center overflow-y-auto safe-area-inset">
+                        <div className="bg-white p-6 md:p-10 rounded-3xl shadow-xl max-w-lg w-full border-4 border-yellow-100">
+                            <IconTrophy size={60} className="text-yellow-400 mx-auto mb-4 md:mb-6" />
+                            <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">遊戲結束!</h2>
+                            <p className="text-gray-500 mb-6 md:mb-8">做得好！來看看你的成績</p>
+                            
+                            <div className="bg-blue-50 rounded-2xl p-6 md:p-8 mb-6 md:mb-8 transform rotate-1 hover:rotate-0 transition-transform">
+                                <div className="text-xs md:text-sm text-blue-400 font-bold uppercase tracking-wide mb-1">總得分</div>
+                                <div className="text-6xl md:text-7xl font-black text-blue-600">{score}</div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 md:gap-4">
+                                <button 
+                                    onClick={returnToMenu}
+                                    className={`bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 md:py-4 px-4 rounded-xl flex items-center justify-center gap-2 ${touchButtonStyle}`}
+                                >
+                                    <IconHome size={18} />
+                                    <span className="text-sm md:text-base">主選單</span>
+                                </button>
+                                <button 
+                                    onClick={() => startGame(timeLimit, modeName)}
+                                    className={`bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 md:py-4 px-4 rounded-xl flex items-center justify-center gap-2 ${touchButtonStyle}`}
+                                >
+                                    <IconRotateCcw size={18} />
+                                    <span className="text-sm md:text-base">再玩一次</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return null;
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
